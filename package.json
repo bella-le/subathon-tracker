@@ -1,0 +1,12 @@
+{
+  "name": "subathon-tracker",
+  "version": "1.0.0",
+  "description": "Live subathon tracker via StreamElements",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

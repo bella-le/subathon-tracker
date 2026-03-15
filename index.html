@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subathon Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e10;
+      --bg2: #18181b;
+      --bg3: #1f1f23;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.14);
+      --text: #efeff1;
+      --text2: #adadb8;
+      --text3: #6b6b7b;
+      --purple: #9147ff;
+      --purple-dim: rgba(145,71,255,0.15);
+      --green: #3ba55c;
+      --amber: #f0aa23;
+      --amber-dim: rgba(240,170,35,0.12);
+      --blue: #5aa7d4;
+      --blue-dim: rgba(90,167,212,0.12);
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .container { width: 100%; max-width: 560px; }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 2rem;
+    }
+    .logo-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--purple);
+    }
+    .logo-text { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+
+    /* ── Setup ─────────────────────────────────────────── */
+    #setup-screen { display: flex; flex-direction: column; gap: 18px; }
+
+    .card {
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.5rem;
+    }
+
+    .card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .card-desc { font-size: 12px; color: var(--text3); line-height: 1.6; }
+
+    .field-group { display: flex; flex-direction: column; gap: 6px; }
+    .field-group label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text3);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .field-group input {
+      background: var(--bg3);
+      border: 0.5px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      width: 100%;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .field-group input:focus { border-color: var(--purple); }
+    .field-group input::placeholder { color: var(--text3); }
+
+    .hint {
+      font-size: 11px;
+      color: var(--text3);
+      line-height: 1.6;
+      padding: 10px 12px;
+      background: var(--bg3);
+      border-radius: var(--radius);
+      border-left: 2px solid var(--purple);
+    }
+    .hint b { color: var(--text2); font-weight: 600; }
+    .hint a { color: var(--purple); text-decoration: none; }
+    .hint a:hover { text-decoration: underline; }
+
+    #start-btn {
+      background: var(--purple);
+      border: none;
+      border-radius: var(--radius);
+      padding: 11px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      width: 100%;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: -0.01em;
+    }
+    #start-btn:hover { opacity: 0.88; }
+    #start-btn:active { transform: scale(0.985); }
+    #start-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .error-msg {
+      font-size: 12px;
+      color: #f87171;
+      background: rgba(248,113,113,0.08);
+      border: 0.5px solid rgba(248,113,113,0.2);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      display: none;
+    }
+
+    /* ── Dashboard ─────────────────────────────────────── */
+    #dashboard { display: none; flex-direction: column; gap: 16px; }
+
+    .dash-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .channel-name { font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+    .since-label { font-size: 12px; color: var(--text3); margin-top: 3px; }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: var(--text2);
+      background: var(--bg3);
+      border-radius: 999px;
+      padding: 5px 12px;
+      border: 0.5px solid var(--border);
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #f87171; }
+    .dot.live { background: var(--green); animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .stat-card {
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+    }
+    .stat-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text3);
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .stat-value { font-size: 28px; font-weight: 700; color: var(--text); line-height: 1; letter-spacing: -0.03em; }
+    .stat-sub { font-size: 11px; color: var(--text3); margin-top: 5px; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text3);
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .feed {
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+    .feed::-webkit-scrollbar { width: 4px; }
+    .feed::-webkit-scrollbar-track { background: transparent; }
+    .feed::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+    .feed-empty {
+      padding: 40px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text3);
+    }
+
+    .feed-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 11px 16px;
+      border-bottom: 0.5px solid var(--border);
+      animation: slideIn 0.22s ease;
+    }
+    .feed-item:last-child { border-bottom: none; }
+    @keyframes slideIn { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
+
+    .event-icon {
+      width: 30px; height: 30px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0; margin-top: 1px;
+      font-weight: 700;
+    }
+    .icon-sub { background: var(--purple-dim); color: var(--purple); }
+    .icon-bits { background: var(--amber-dim); color: var(--amber); }
+    .icon-gift { background: rgba(59,165,92,0.15); color: var(--green); }
+
+    .event-body { flex: 1; min-width: 0; }
+    .event-user { font-size: 13px; font-weight: 600; color: var(--text); }
+    .event-meta { font-size: 12px; color: var(--text2); margin-top: 2px; line-height: 1.4; }
+    .event-time { font-size: 11px; color: var(--text3); flex-shrink: 0; white-space: nowrap; padding-top: 2px; }
+
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 999px;
+      margin-left: 7px;
+      vertical-align: middle;
+      letter-spacing: 0.02em;
+    }
+    .badge-sub { background: var(--purple-dim); color: var(--purple); }
+    .badge-bits { background: var(--amber-dim); color: var(--amber); }
+    .badge-gift { background: rgba(59,165,92,0.15); color: var(--green); }
+
+    .footer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-row span { font-size: 11px; color: var(--text3); }
+    #reset-btn {
+      font-size: 11px;
+      color: var(--text3);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+      font-family: inherit;
+    }
+    #reset-btn:hover { color: var(--text2); }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="logo">
+    <div class="logo-dot"></div>
+    <span class="logo-text">Subathon Tracker</span>
+  </div>
+
+  <!-- Setup -->
+  <div id="setup-screen">
+    <div class="card">
+      <div class="card-title">Connect to StreamElements</div>
+      <div class="card-desc" style="margin-top:4px">Enter your channel name and JWT token to start tracking subs and bits live.</div>
+    </div>
+
+    <div class="field-group">
+      <label>Channel Username</label>
+      <input id="channel" type="text" placeholder="e.g. xqc" autocomplete="off" autocorrect="off" spellcheck="false" />
+    </div>
+
+    <div class="field-group">
+      <label>StreamElements JWT Token</label>
+      <input id="jwt" type="password" placeholder="Paste your JWT token here" autocomplete="off" />
+      <div class="hint">
+        <b>How to get your JWT:</b><br>
+        Go to <a href="https://streamelements.com/dashboard" target="_blank">streamelements.com/dashboard</a>
+        → Account Settings → Channels → click <b>Show Secret</b> → copy the JWT token
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>Track events since</label>
+      <input id="since-time" type="datetime-local" />
+      <span style="font-size:11px;color:var(--text3)">Pre-set to 12:30 PM EST today — adjust if needed</span>
+    </div>
+
+    <button id="start-btn">Start Tracking</button>
+    <div class="error-msg" id="error-msg"></div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard">
+    <div class="dash-header">
+      <div>
+        <div class="channel-name" id="dash-channel"></div>
+        <div class="since-label" id="dash-since"></div>
+      </div>
+      <div class="status-pill">
+        <div class="dot" id="status-dot"></div>
+        <span id="status-text">Connecting…</span>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Subs</div>
+        <div class="stat-value" id="stat-subs">0</div>
+        <div class="stat-sub" id="stat-gift">0 gifted</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Bits</div>
+        <div class="stat-value" id="stat-bits">0</div>
+        <div class="stat-sub" id="stat-cheerers">0 cheerers</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Events</div>
+        <div class="stat-value" id="stat-events">0</div>
+        <div class="stat-sub" id="stat-last">—</div>
+      </div>
+    </div>
+
+    <div class="section-label">Live Feed</div>
+    <div class="feed" id="feed">
+      <div class="feed-empty">Waiting for events…</div>
+    </div>
+
+    <div class="footer-row">
+      <span id="last-poll">Polling every 20s</span>
+      <button id="reset-btn">Change settings</button>
+    </div>
+  </div>
+
+</div>
+<script>
+const POLL_MS = 20000;
+let pollTimer = null;
+let sinceDate = null;
+let channelId = null;
+let jwt = '';
+let seenIds = new Set();
+let totalSubs = 0, totalGifted = 0, totalBits = 0, totalEvents = 0;
+let cheerers = new Set();
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function isDST(d) {
+  const jan = new Date(d.getFullYear(), 0, 1).getTimezoneOffset();
+  const jul = new Date(d.getFullYear(), 6, 1).getTimezoneOffset();
+  return d.getTimezoneOffset() < Math.max(jan, jul);
+}
+
+function setDefaultSince() {
+  const now = new Date();
+  const estOffsetMs = -5 * 60 * 60 * 1000;
+  const dstOffset = isDST(now) ? 60 * 60 * 1000 : 0;
+  const estNow = new Date(now.getTime() + estOffsetMs + dstOffset);
+  const target = new Date(estNow);
+  target.setHours(12, 30, 0, 0);
+  const targetUtc = new Date(target.getTime() - estOffsetMs - dstOffset);
+  document.getElementById('since-time').value =
+    `${targetUtc.getFullYear()}-${pad(targetUtc.getMonth()+1)}-${pad(targetUtc.getDate())}T${pad(targetUtc.getHours())}:${pad(targetUtc.getMinutes())}`;
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function fmt(d) {
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function relTime(iso) {
+  const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function addFeedItem({ iconText, iconClass, badgeClass, badgeText, user, meta, time }) {
+  const feed = document.getElementById('feed');
+  const empty = feed.querySelector('.feed-empty');
+  if (empty) empty.remove();
+
+  const item = document.createElement('div');
+  item.className = 'feed-item';
+  item.innerHTML = `
+    <div class="event-icon ${iconClass}">${iconText}</div>
+    <div class="event-body">
+      <div class="event-user">${escHtml(user)}<span class="badge ${badgeClass}">${badgeText}</span></div>
+      <div class="event-meta">${escHtml(meta)}</div>
+    </div>
+    <div class="event-time">${relTime(time)}</div>
+  `;
+  feed.insertBefore(item, feed.firstChild);
+  if (feed.children.length > 60) feed.removeChild(feed.lastChild);
+
+  totalEvents++;
+  document.getElementById('stat-events').textContent = totalEvents;
+  document.getElementById('stat-last').textContent = 'Last: ' + fmt(new Date(time));
+}
+
+function updateStats() {
+  document.getElementById('stat-subs').textContent = totalSubs;
+  document.getElementById('stat-gift').textContent = totalGifted + ' gifted';
+  document.getElementById('stat-bits').textContent = totalBits.toLocaleString();
+  document.getElementById('stat-cheerers').textContent = cheerers.size + ' cheerers';
+}
+
+async function getChannelId(username, token) {
+  const res = await fetch(`https://api.streamelements.com/kappa/v2/channels/${encodeURIComponent(username)}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error(`Channel lookup failed (${res.status}). Check your username and JWT token.`);
+  const data = await res.json();
+  return data._id || data.id;
+}
+
+async function pollActivities() {
+  const after = sinceDate.toISOString();
+  const url = `https://api.streamelements.com/kappa/v2/activities/${channelId}?limit=100&after=${encodeURIComponent(after)}&types[]=subscriber&types[]=cheer&types[]=gift`;
+
+  let res;
+  try {
+    res = await fetch(url, { headers: { 'Authorization': `Bearer ${jwt}` } });
+  } catch (e) {
+    console.warn('Network error:', e);
+    return;
+  }
+
+  if (res.status === 401) {
+    document.getElementById('status-text').textContent = 'Auth error';
+    document.getElementById('status-dot').classList.remove('live');
+    clearInterval(pollTimer);
+    return;
+  }
+
+  if (!res.ok) { console.warn('Activities API error', res.status); return; }
+
+  let data;
+  try { data = await res.json(); } catch(e) { return; }
+
+  const items = Array.isArray(data) ? data : (data.docs || data.data || []);
+
+  items
+    .filter(ev => new Date(ev.createdAt || ev.updatedAt) >= sinceDate)
+    .reverse()
+    .forEach(ev => {
+      const id = ev._id || ev.id;
+      if (seenIds.has(id)) return;
+      seenIds.add(id);
+
+      const type = ev.type || '';
+      const d = ev.data || {};
+      const user = d.username || d.name || ev.sender || 'Anonymous';
+      const ts = ev.createdAt || new Date().toISOString();
+
+      if (type === 'subscriber') {
+        totalSubs++;
+        const tier = d.tier ? `Tier ${Math.ceil(Number(d.tier)/1000)}` : 'Tier 1';
+        const gifted = !!(d.gifted || d.sender);
+        if (gifted) totalGifted++;
+        addFeedItem({
+          iconText: '★',
+          iconClass: gifted ? 'icon-gift' : 'icon-sub',
+          badgeClass: gifted ? 'badge-gift' : 'badge-sub',
+          badgeText: gifted ? 'Gifted' : tier,
+          user: gifted ? (d.sender || user) : user,
+          meta: gifted ? `Gifted a sub to ${user}` : `Subscribed · ${tier}${d.message ? ' · "' + d.message + '"' : ''}`,
+          time: ts
+        });
+        updateStats();
+      } else if (type === 'cheer') {
+        const amount = Number(d.amount || d.bits || 0);
+        totalBits += amount;
+        cheerers.add(user.toLowerCase());
+        addFeedItem({
+          iconText: '♦',
+          iconClass: 'icon-bits',
+          badgeClass: 'badge-bits',
+          badgeText: 'Bits',
+          user,
+          meta: `Cheered ${amount.toLocaleString()} bits${d.message ? ' · "' + d.message + '"' : ''}`,
+          time: ts
+        });
+        updateStats();
+      } else if (type === 'gift') {
+        totalSubs++;
+        totalGifted++;
+        const qty = d.amount || 1;
+        addFeedItem({
+          iconText: '★',
+          iconClass: 'icon-gift',
+          badgeClass: 'badge-gift',
+          badgeText: 'Gift',
+          user,
+          meta: `Gifted ${qty} sub${qty !== 1 ? 's' : ''}`,
+          time: ts
+        });
+        updateStats();
+      }
+    });
+
+  document.getElementById('last-poll').textContent = 'Last polled: ' + fmt(new Date());
+}
+
+async function startDashboard() {
+  document.getElementById('error-msg').style.display = 'none';
+  const channel = document.getElementById('channel').value.trim().toLowerCase();
+  jwt = document.getElementById('jwt').value.trim();
+  const sinceVal = document.getElementById('since-time').value;
+
+  if (!channel || !jwt) { showError('Please fill in your channel name and JWT token.'); return; }
+
+  sinceDate = sinceVal ? new Date(sinceVal) : (() => { const d = new Date(); d.setHours(12,30,0,0); return d; })();
+
+  const btn = document.getElementById('start-btn');
+  btn.textContent = 'Connecting…';
+  btn.disabled = true;
+
+  try {
+    channelId = await getChannelId(channel, jwt);
+  } catch(e) {
+    showError(e.message);
+    btn.textContent = 'Start Tracking';
+    btn.disabled = false;
+    return;
+  }
+
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'flex';
+  document.getElementById('dash-channel').textContent = '#' + channel;
+  document.getElementById('dash-since').textContent =
+    'Since ' + sinceDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    + ' · ' + sinceDate.toLocaleDateString();
+
+  document.getElementById('status-dot').classList.add('live');
+  document.getElementById('status-text').textContent = 'Live';
+
+  await pollActivities();
+  pollTimer = setInterval(pollActivities, POLL_MS);
+}
+
+function resetDashboard() {
+  clearInterval(pollTimer);
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('setup-screen').style.display = 'flex';
+  const btn = document.getElementById('start-btn');
+  btn.textContent = 'Start Tracking';
+  btn.disabled = false;
+  totalSubs = totalGifted = totalBits = totalEvents = 0;
+  cheerers.clear(); seenIds.clear();
+  document.getElementById('feed').innerHTML = '<div class="feed-empty">Waiting for events…</div>';
+  document.getElementById('stat-subs').textContent = '0';
+  document.getElementById('stat-bits').textContent = '0';
+  document.getElementById('stat-events').textContent = '0';
+  document.getElementById('stat-gift').textContent = '0 gifted';
+  document.getElementById('stat-cheerers').textContent = '0 cheerers';
+  document.getElementById('stat-last').textContent = '—';
+}
+
+document.getElementById('start-btn').addEventListener('click', startDashboard);
+document.getElementById('reset-btn').addEventListener('click', resetDashboard);
+
+setDefaultSince();
+</script>
+</body>
+</html>

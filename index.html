@@ -294,12 +294,6 @@
       </div>
     </div>
 
-    <div class="field-group">
-      <label>Track events since</label>
-      <input id="since-time" type="datetime-local" />
-      <span style="font-size:11px;color:var(--text3)">Pre-set to 12:30 PM EST today — adjust if needed</span>
-    </div>
-
     <div class="card" style="margin-top:4px">
       <div class="card-title">Starting counts <span style="font-weight:400;color:var(--text3)">(optional)</span></div>
       <div class="card-desc" style="margin-top:4px;margin-bottom:12px">If subs/bits already happened before you connected, enter them here so totals stay accurate.</div>
@@ -324,7 +318,6 @@
     <div class="dash-header">
       <div>
         <div class="channel-name" id="dash-channel"></div>
-        <div class="since-label" id="dash-since"></div>
       </div>
       <div class="status-pill">
         <div class="dot" id="status-dot"></div>
@@ -365,7 +358,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
 <script>
 let socket = null;
-let sinceDate = null;
 let channelId = null;
 let jwt = '';
 let seenIds = new Set();
@@ -373,21 +365,6 @@ let totalSubs = 0, totalGifted = 0, totalBits = 0, totalEvents = 0;
 let cheerers = new Set();
 
 function pad(n) { return String(n).padStart(2, '0'); }
-
-function isDST(d) {
-  const jan = new Date(d.getFullYear(), 0, 1).getTimezoneOffset();
-  const jul = new Date(d.getFullYear(), 6, 1).getTimezoneOffset();
-  return d.getTimezoneOffset() < Math.max(jan, jul);
-}
-
-function setDefaultSince() {
-  const now = new Date();
-  const estHours = isDST(now) ? -4 : -5;
-  const targetUtcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12 - estHours, 30);
-  const d = new Date(targetUtcMs);
-  document.getElementById('since-time').value =
-    `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 function showError(msg) {
   const el = document.getElementById('error-msg');
@@ -531,13 +508,10 @@ async function startDashboard() {
   document.getElementById('error-msg').style.display = 'none';
   const channel = document.getElementById('channel').value.trim().toLowerCase();
   jwt = document.getElementById('jwt').value.trim();
-  const sinceVal = document.getElementById('since-time').value;
   const startSubs = parseInt(document.getElementById('start-subs').value) || 0;
   const startBits = parseInt(document.getElementById('start-bits').value) || 0;
 
   if (!channel || !jwt) { showError('Please fill in your channel name and JWT token.'); return; }
-
-  sinceDate = sinceVal ? new Date(sinceVal) : (() => { const d = new Date(); d.setHours(12,30,0,0); return d; })();
 
   const btn = document.getElementById('start-btn');
   btn.textContent = 'Connecting…';
@@ -562,9 +536,6 @@ async function startDashboard() {
   document.getElementById('setup-screen').style.display = 'none';
   document.getElementById('dashboard').style.display = 'flex';
   document.getElementById('dash-channel').textContent = '#' + channel;
-  document.getElementById('dash-since').textContent =
-    'Since ' + sinceDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    + ' · ' + sinceDate.toLocaleDateString();
 
   updateStats();
   connectSocket();
@@ -591,7 +562,6 @@ function resetDashboard() {
 document.getElementById('start-btn').addEventListener('click', startDashboard);
 document.getElementById('reset-btn').addEventListener('click', resetDashboard);
 
-setDefaultSince();
 </script>
 </body>
 </html>

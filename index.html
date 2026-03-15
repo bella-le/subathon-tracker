@@ -300,6 +300,21 @@
       <span style="font-size:11px;color:var(--text3)">Pre-set to 12:30 PM EST today — adjust if needed</span>
     </div>
 
+    <div class="card" style="margin-top:4px">
+      <div class="card-title">Starting counts <span style="font-weight:400;color:var(--text3)">(optional)</span></div>
+      <div class="card-desc" style="margin-top:4px;margin-bottom:12px">If subs/bits already happened before you connected, enter them here so totals stay accurate.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field-group">
+          <label>Subs so far</label>
+          <input id="start-subs" type="number" min="0" value="0" placeholder="0" />
+        </div>
+        <div class="field-group">
+          <label>Bits so far</label>
+          <input id="start-bits" type="number" min="0" value="0" placeholder="0" />
+        </div>
+      </div>
+    </div>
+
     <button id="start-btn">Start Tracking</button>
     <div class="error-msg" id="error-msg"></div>
   </div>
@@ -341,15 +356,15 @@
     </div>
 
     <div class="footer-row">
-      <span id="last-poll">Polling every 20s</span>
+      <span id="last-poll">Connecting…</span>
       <button id="reset-btn">Change settings</button>
     </div>
   </div>
 
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
 <script>
-const POLL_MS = 20000;
-let pollTimer = null;
+let socket = null;
 let sinceDate = null;
 let channelId = null;
 let jwt = '';
@@ -367,14 +382,11 @@ function isDST(d) {
 
 function setDefaultSince() {
   const now = new Date();
-  const estOffsetMs = -5 * 60 * 60 * 1000;
-  const dstOffset = isDST(now) ? 60 * 60 * 1000 : 0;
-  const estNow = new Date(now.getTime() + estOffsetMs + dstOffset);
-  const target = new Date(estNow);
-  target.setHours(12, 30, 0, 0);
-  const targetUtc = new Date(target.getTime() - estOffsetMs - dstOffset);
+  const estHours = isDST(now) ? -4 : -5;
+  const targetUtcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12 - estHours, 30);
+  const d = new Date(targetUtcMs);
   document.getElementById('since-time').value =
-    `${targetUtc.getFullYear()}-${pad(targetUtc.getMonth()+1)}-${pad(targetUtc.getDate())}T${pad(targetUtc.getHours())}:${pad(targetUtc.getMinutes())}`;
+    `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function showError(msg) {
@@ -437,92 +449,82 @@ async function getChannelId(username, token) {
   return data._id || data.id;
 }
 
-async function pollActivities() {
-  const after = sinceDate.toISOString();
-  const url = `https://api.streamelements.com/kappa/v2/activities/${channelId}?limit=100&after=${encodeURIComponent(after)}&types[]=subscriber&types[]=cheer&types[]=gift`;
+function handleEvent(ev) {
+  const id = ev._id || ev.activityId;
+  if (id && seenIds.has(id)) return;
+  if (id) seenIds.add(id);
 
-  let res;
-  try {
-    res = await fetch(url, { headers: { 'Authorization': `Bearer ${jwt}` } });
-  } catch (e) {
-    console.warn('Network error:', e);
-    return;
+  const type = ev.type || '';
+  const d = ev.data || {};
+  const user = d.username || d.displayName || d.name || 'Anonymous';
+  const ts = ev.createdAt || new Date().toISOString();
+
+  if (type === 'subscriber') {
+    totalSubs++;
+    const tierNum = Number(d.tier || 1000);
+    const tier = `Tier ${Math.ceil(tierNum / 1000)}`;
+    const gifted = !!(d.gifted || d.isCommunityGift || d.gifter);
+    if (gifted) totalGifted++;
+    addFeedItem({
+      iconText: '★',
+      iconClass: gifted ? 'icon-gift' : 'icon-sub',
+      badgeClass: gifted ? 'badge-gift' : 'badge-sub',
+      badgeText: gifted ? 'Gifted' : tier,
+      user: gifted ? (d.gifter || user) : user,
+      meta: gifted ? `Gifted a sub to ${user}` : `Subscribed · ${tier}${d.message ? ' · "' + d.message + '"' : ''}`,
+      time: ts
+    });
+    updateStats();
+  } else if (type === 'cheer') {
+    const amount = Number(d.amount || d.bits || 0);
+    totalBits += amount;
+    cheerers.add(user.toLowerCase());
+    addFeedItem({
+      iconText: '♦',
+      iconClass: 'icon-bits',
+      badgeClass: 'badge-bits',
+      badgeText: 'Bits',
+      user,
+      meta: `Cheered ${amount.toLocaleString()} bits${d.message ? ' · "' + d.message + '"' : ''}`,
+      time: ts
+    });
+    updateStats();
   }
+}
 
-  if (res.status === 401) {
+function connectSocket() {
+  if (socket) { socket.disconnect(); socket = null; }
+
+  socket = io('https://realtime.streamelements.com', { transports: ['websocket'] });
+
+  socket.on('connect', () => {
+    socket.emit('authenticate', { method: 'jwt', token: jwt });
+  });
+
+  socket.on('authenticated', () => {
+    document.getElementById('status-dot').classList.add('live');
+    document.getElementById('status-text').textContent = 'Live';
+    document.getElementById('last-poll').textContent = 'Connected · waiting for events';
+  });
+
+  socket.on('unauthorized', err => {
     document.getElementById('status-text').textContent = 'Auth error';
     document.getElementById('status-dot').classList.remove('live');
-    clearInterval(pollTimer);
-    return;
-  }
+    console.error('SE unauthorized:', err);
+  });
 
-  if (!res.ok) { console.warn('Activities API error', res.status); return; }
+  socket.on('event', handleEvent);
 
-  let data;
-  try { data = await res.json(); } catch(e) { return; }
+  socket.on('disconnect', () => {
+    document.getElementById('status-dot').classList.remove('live');
+    document.getElementById('status-text').textContent = 'Reconnecting…';
+    document.getElementById('last-poll').textContent = 'Disconnected · reconnecting…';
+  });
 
-  const items = Array.isArray(data) ? data : (data.docs || data.data || []);
-
-  items
-    .filter(ev => new Date(ev.createdAt || ev.updatedAt) >= sinceDate)
-    .reverse()
-    .forEach(ev => {
-      const id = ev._id || ev.id;
-      if (seenIds.has(id)) return;
-      seenIds.add(id);
-
-      const type = ev.type || '';
-      const d = ev.data || {};
-      const user = d.username || d.name || ev.sender || 'Anonymous';
-      const ts = ev.createdAt || new Date().toISOString();
-
-      if (type === 'subscriber') {
-        totalSubs++;
-        const tier = d.tier ? `Tier ${Math.ceil(Number(d.tier)/1000)}` : 'Tier 1';
-        const gifted = !!(d.gifted || d.sender);
-        if (gifted) totalGifted++;
-        addFeedItem({
-          iconText: '★',
-          iconClass: gifted ? 'icon-gift' : 'icon-sub',
-          badgeClass: gifted ? 'badge-gift' : 'badge-sub',
-          badgeText: gifted ? 'Gifted' : tier,
-          user: gifted ? (d.sender || user) : user,
-          meta: gifted ? `Gifted a sub to ${user}` : `Subscribed · ${tier}${d.message ? ' · "' + d.message + '"' : ''}`,
-          time: ts
-        });
-        updateStats();
-      } else if (type === 'cheer') {
-        const amount = Number(d.amount || d.bits || 0);
-        totalBits += amount;
-        cheerers.add(user.toLowerCase());
-        addFeedItem({
-          iconText: '♦',
-          iconClass: 'icon-bits',
-          badgeClass: 'badge-bits',
-          badgeText: 'Bits',
-          user,
-          meta: `Cheered ${amount.toLocaleString()} bits${d.message ? ' · "' + d.message + '"' : ''}`,
-          time: ts
-        });
-        updateStats();
-      } else if (type === 'gift') {
-        totalSubs++;
-        totalGifted++;
-        const qty = d.amount || 1;
-        addFeedItem({
-          iconText: '★',
-          iconClass: 'icon-gift',
-          badgeClass: 'badge-gift',
-          badgeText: 'Gift',
-          user,
-          meta: `Gifted ${qty} sub${qty !== 1 ? 's' : ''}`,
-          time: ts
-        });
-        updateStats();
-      }
-    });
-
-  document.getElementById('last-poll').textContent = 'Last polled: ' + fmt(new Date());
+  socket.on('connect_error', err => {
+    document.getElementById('status-text').textContent = 'Connection error';
+    console.error('Socket connect error:', err);
+  });
 }
 
 async function startDashboard() {
@@ -530,6 +532,8 @@ async function startDashboard() {
   const channel = document.getElementById('channel').value.trim().toLowerCase();
   jwt = document.getElementById('jwt').value.trim();
   const sinceVal = document.getElementById('since-time').value;
+  const startSubs = parseInt(document.getElementById('start-subs').value) || 0;
+  const startBits = parseInt(document.getElementById('start-bits').value) || 0;
 
   if (!channel || !jwt) { showError('Please fill in your channel name and JWT token.'); return; }
 
@@ -548,6 +552,13 @@ async function startDashboard() {
     return;
   }
 
+  totalSubs = startSubs;
+  totalGifted = 0;
+  totalBits = startBits;
+  totalEvents = 0;
+  cheerers.clear();
+  seenIds.clear();
+
   document.getElementById('setup-screen').style.display = 'none';
   document.getElementById('dashboard').style.display = 'flex';
   document.getElementById('dash-channel').textContent = '#' + channel;
@@ -555,15 +566,12 @@ async function startDashboard() {
     'Since ' + sinceDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     + ' · ' + sinceDate.toLocaleDateString();
 
-  document.getElementById('status-dot').classList.add('live');
-  document.getElementById('status-text').textContent = 'Live';
-
-  await pollActivities();
-  pollTimer = setInterval(pollActivities, POLL_MS);
+  updateStats();
+  connectSocket();
 }
 
 function resetDashboard() {
-  clearInterval(pollTimer);
+  if (socket) { socket.disconnect(); socket = null; }
   document.getElementById('dashboard').style.display = 'none';
   document.getElementById('setup-screen').style.display = 'flex';
   const btn = document.getElementById('start-btn');

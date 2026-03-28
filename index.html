@@ -52,72 +52,6 @@
     }
     .logo-text { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
 
-    /* ── Setup ─────────────────────────────────────────── */
-    #setup-screen { display: flex; flex-direction: column; gap: 18px; }
-
-    .card {
-      background: var(--bg2);
-      border: 0.5px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 1.25rem 1.5rem;
-    }
-
-    .card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-    .card-desc { font-size: 12px; color: var(--text3); line-height: 1.6; }
-
-    .field-group { display: flex; flex-direction: column; gap: 6px; }
-    .field-group label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text3);
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .field-group input {
-      background: var(--bg3);
-      border: 0.5px solid var(--border2);
-      border-radius: var(--radius);
-      padding: 9px 12px;
-      font-size: 13px;
-      color: var(--text);
-      outline: none;
-      width: 100%;
-      font-family: inherit;
-      transition: border-color 0.15s;
-    }
-    .field-group input:focus { border-color: var(--purple); }
-    .field-group input::placeholder { color: var(--text3); }
-
-    .hint {
-      font-size: 11px;
-      color: var(--text3);
-      line-height: 1.6;
-      padding: 10px 12px;
-      background: var(--bg3);
-      border-radius: var(--radius);
-      border-left: 2px solid var(--purple);
-    }
-    .hint b { color: var(--text2); font-weight: 600; }
-    .hint a { color: var(--purple); text-decoration: none; }
-    .hint a:hover { text-decoration: underline; }
-
-    #start-btn {
-      background: var(--purple);
-      border: none;
-      border-radius: var(--radius);
-      padding: 11px 20px;
-      font-size: 14px;
-      font-weight: 600;
-      color: #fff;
-      cursor: pointer;
-      width: 100%;
-      transition: opacity 0.15s, transform 0.1s;
-      letter-spacing: -0.01em;
-    }
-    #start-btn:hover { opacity: 0.88; }
-    #start-btn:active { transform: scale(0.985); }
-    #start-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-
     .error-msg {
       font-size: 12px;
       color: #f87171;
@@ -126,10 +60,11 @@
       border-radius: var(--radius);
       padding: 10px 12px;
       display: none;
+      margin-bottom: 12px;
     }
 
     /* ── Dashboard ─────────────────────────────────────── */
-    #dashboard { display: none; flex-direction: column; gap: 16px; }
+    #dashboard { display: flex; flex-direction: column; gap: 16px; }
 
     .dash-header {
       display: flex;
@@ -225,6 +160,7 @@
     .icon-sub { background: var(--purple-dim); color: var(--purple); }
     .icon-bits { background: var(--amber-dim); color: var(--amber); }
     .icon-gift { background: rgba(59,165,92,0.15); color: var(--green); }
+    .icon-tip { background: var(--blue-dim); color: var(--blue); }
 
     .event-body { flex: 1; min-width: 0; }
     .event-user { font-size: 13px; font-weight: 600; color: var(--text); }
@@ -244,24 +180,56 @@
     .badge-sub { background: var(--purple-dim); color: var(--purple); }
     .badge-bits { background: var(--amber-dim); color: var(--amber); }
     .badge-gift { background: rgba(59,165,92,0.15); color: var(--green); }
+    .badge-tip { background: var(--blue-dim); color: var(--blue); }
 
-    .footer-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    /* ── Timer ─────────────────────────────────────────── */
+    .timer-card {
+      background: var(--bg2);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      text-align: center;
     }
-    .footer-row span { font-size: 11px; color: var(--text3); }
-    #reset-btn {
+    .timer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .timer-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text3);
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    .twitch-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
       font-size: 11px;
       color: var(--text3);
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 0;
-      text-decoration: underline;
-      font-family: inherit;
+      background: var(--bg3);
+      border-radius: 999px;
+      padding: 4px 10px;
+      border: 0.5px solid var(--border);
     }
-    #reset-btn:hover { color: var(--text2); }
+    .timer-display {
+      font-size: 60px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.04em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+      transition: color 0.3s, opacity 0.3s;
+    }
+    .timer-display.paused { opacity: 0.35; }
+    .timer-display.expired { color: #f87171; }
+    @keyframes timerAdd { 0%,100% { color: var(--text); } 20% { color: var(--green); } }
+    .timer-display.added { animation: timerAdd 1s ease; }
+
+    #last-poll { font-size: 11px; color: var(--text3); }
   </style>
 </head>
 <body>
@@ -272,46 +240,7 @@
     <span class="logo-text">Subathon Tracker</span>
   </div>
 
-  <!-- Setup -->
-  <div id="setup-screen">
-    <div class="card">
-      <div class="card-title">Connect to StreamElements</div>
-      <div class="card-desc" style="margin-top:4px">Enter your channel name and JWT token to start tracking subs and bits live.</div>
-    </div>
-
-    <div class="field-group">
-      <label>Channel Username</label>
-      <input id="channel" type="text" placeholder="e.g. xqc" autocomplete="off" autocorrect="off" spellcheck="false" />
-    </div>
-
-    <div class="field-group">
-      <label>StreamElements JWT Token</label>
-      <input id="jwt" type="password" placeholder="Paste your JWT token here" autocomplete="off" />
-      <div class="hint">
-        <b>How to get your JWT:</b><br>
-        Go to <a href="https://streamelements.com/dashboard" target="_blank">streamelements.com/dashboard</a>
-        → Account Settings → Channels → click <b>Show Secret</b> → copy the JWT token
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:4px">
-      <div class="card-title">Starting counts <span style="font-weight:400;color:var(--text3)">(optional)</span></div>
-      <div class="card-desc" style="margin-top:4px;margin-bottom:12px">If subs/bits already happened before you connected, enter them here so totals stay accurate.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field-group">
-          <label>Subs so far</label>
-          <input id="start-subs" type="number" min="0" value="0" placeholder="0" />
-        </div>
-        <div class="field-group">
-          <label>Bits so far</label>
-          <input id="start-bits" type="number" min="0" value="0" placeholder="0" />
-        </div>
-      </div>
-    </div>
-
-    <button id="start-btn">Start Tracking</button>
-    <div class="error-msg" id="error-msg"></div>
-  </div>
+  <div class="error-msg" id="error-msg"></div>
 
   <!-- Dashboard -->
   <div id="dashboard">
@@ -323,6 +252,17 @@
         <div class="dot" id="status-dot"></div>
         <span id="status-text">Connecting…</span>
       </div>
+    </div>
+
+    <div class="timer-card">
+      <div class="timer-header">
+        <div class="timer-label">Time Remaining</div>
+        <div class="twitch-pill">
+          <div class="dot" id="twitch-dot"></div>
+          <span id="twitch-status">Checking…</span>
+        </div>
+      </div>
+      <div class="timer-display paused" id="timer-display">--:--:--</div>
     </div>
 
     <div class="stats-row">
@@ -348,23 +288,79 @@
       <div class="feed-empty">Waiting for events…</div>
     </div>
 
-    <div class="footer-row">
-      <span id="last-poll">Connecting…</span>
-      <button id="reset-btn">Change settings</button>
-    </div>
+    <div id="last-poll">Connecting…</div>
   </div>
 
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
 <script>
 let socket = null;
-let channelId = null;
 let jwt = '';
 let seenIds = new Set();
 let totalSubs = 0, totalGifted = 0, totalBits = 0, totalEvents = 0;
 let cheerers = new Set();
+let saveInterval = null;
 
-function pad(n) { return String(n).padStart(2, '0'); }
+let timerRemaining = 0;
+let timerInterval = null;
+let timerCfg = { t1: 0, t2: 0, t3: 0, per100Bits: 0, perDollar: 0 };
+
+function fmtTimer(secs) {
+  secs = Math.max(0, Math.floor(secs));
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function updateTimerDisplay() {
+  const el = document.getElementById('timer-display');
+  el.textContent = fmtTimer(timerRemaining);
+  el.classList.toggle('expired', timerRemaining <= 0);
+}
+
+function addTime(seconds) {
+  if (seconds <= 0) return;
+  timerRemaining += seconds;
+  const el = document.getElementById('timer-display');
+  el.classList.remove('added');
+  void el.offsetWidth;
+  el.classList.add('added');
+  updateTimerDisplay();
+}
+
+function startTimerTick() {
+  if (timerInterval) return; // already running
+  timerInterval = setInterval(() => {
+    if (timerRemaining > 0) {
+      timerRemaining -= 1;
+      updateTimerDisplay();
+    }
+  }, 1000);
+  document.getElementById('timer-display').classList.remove('paused');
+}
+
+function pauseTimerTick() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  document.getElementById('timer-display').classList.add('paused');
+}
+
+let liveStatusInterval = null;
+
+async function pollLiveStatus() {
+  try {
+    const res = await fetch('/api/live-status');
+    const { live, configured } = await res.json();
+
+    const dot = document.getElementById('twitch-dot');
+    const text = document.getElementById('twitch-status');
+    dot.classList.toggle('live', live);
+    text.textContent = !configured ? 'Timer Running' : live ? 'Stream Live' : 'Offline';
+
+    if (live) startTimerTick();
+    else { pauseTimerTick(); saveState(); }
+  } catch (_) {}
+}
 
 function showError(msg) {
   const el = document.getElementById('error-msg');
@@ -421,7 +417,7 @@ async function getChannelId(username, token) {
   const res = await fetch(`https://api.streamelements.com/kappa/v2/channels/${encodeURIComponent(username)}`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
-  if (!res.ok) throw new Error(`Channel lookup failed (${res.status}). Check your username and JWT token.`);
+  if (!res.ok) throw new Error(`Channel lookup failed (${res.status}). Check SE_CHANNEL and SE_JWT in .env.`);
   const data = await res.json();
   return data._id || data.id;
 }
@@ -439,9 +435,11 @@ function handleEvent(ev) {
   if (type === 'subscriber') {
     totalSubs++;
     const tierNum = Number(d.tier || 1000);
-    const tier = `Tier ${Math.ceil(tierNum / 1000)}`;
+    const tierIdx = Math.ceil(tierNum / 1000);
+    const tier = `Tier ${tierIdx}`;
     const gifted = !!(d.gifted || d.isCommunityGift || d.gifter);
     if (gifted) totalGifted++;
+    addTime([0, timerCfg.t1, timerCfg.t2, timerCfg.t3][tierIdx] || timerCfg.t1);
     addFeedItem({
       iconText: '★',
       iconClass: gifted ? 'icon-gift' : 'icon-sub',
@@ -456,6 +454,7 @@ function handleEvent(ev) {
     const amount = Number(d.amount || d.bits || 0);
     totalBits += amount;
     cheerers.add(user.toLowerCase());
+    addTime(Math.floor(amount / 100) * timerCfg.per100Bits);
     addFeedItem({
       iconText: '♦',
       iconClass: 'icon-bits',
@@ -463,6 +462,19 @@ function handleEvent(ev) {
       badgeText: 'Bits',
       user,
       meta: `Cheered ${amount.toLocaleString()} bits${d.message ? ' · "' + d.message + '"' : ''}`,
+      time: ts
+    });
+    updateStats();
+  } else if (type === 'tip') {
+    const amount = Number(d.amount || 0);
+    addTime(Math.floor(amount) * timerCfg.perDollar);
+    addFeedItem({
+      iconText: '$',
+      iconClass: 'icon-tip',
+      badgeClass: 'badge-tip',
+      badgeText: 'Donation',
+      user,
+      meta: `Donated $${amount.toFixed(2)}${d.message ? ' · "' + d.message + '"' : ''}`,
       time: ts
     });
     updateStats();
@@ -487,6 +499,7 @@ function connectSocket() {
   socket.on('unauthorized', err => {
     document.getElementById('status-text').textContent = 'Auth error';
     document.getElementById('status-dot').classList.remove('live');
+    showError('StreamElements auth failed. Check SE_JWT in .env.');
     console.error('SE unauthorized:', err);
   });
 
@@ -504,64 +517,69 @@ function connectSocket() {
   });
 }
 
-async function startDashboard() {
-  document.getElementById('error-msg').style.display = 'none';
-  const channel = document.getElementById('channel').value.trim().toLowerCase();
-  jwt = document.getElementById('jwt').value.trim();
-  const startSubs = parseInt(document.getElementById('start-subs').value) || 0;
-  const startBits = parseInt(document.getElementById('start-bits').value) || 0;
-
-  if (!channel || !jwt) { showError('Please fill in your channel name and JWT token.'); return; }
-
-  const btn = document.getElementById('start-btn');
-  btn.textContent = 'Connecting…';
-  btn.disabled = true;
-
+async function saveState() {
   try {
-    channelId = await getChannelId(channel, jwt);
-  } catch(e) {
-    showError(e.message);
-    btn.textContent = 'Start Tracking';
-    btn.disabled = false;
+    await fetch('/api/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subs: totalSubs, bits: totalBits, gifted: totalGifted, events: totalEvents,
+        timerRemaining,
+      }),
+    });
+  } catch (_) {}
+}
+
+async function init() {
+  let cfg, state;
+  try {
+    const [cfgRes, stateRes] = await Promise.all([fetch('/api/config'), fetch('/api/state')]);
+    cfg = await cfgRes.json();
+    state = await stateRes.json();
+  } catch (e) {
+    showError('Failed to load config from server.');
     return;
   }
 
-  totalSubs = startSubs;
-  totalGifted = 0;
-  totalBits = startBits;
-  totalEvents = 0;
-  cheerers.clear();
-  seenIds.clear();
+  if (!cfg.jwt || !cfg.channel) {
+    showError('SE_JWT and SE_CHANNEL must be set in .env before starting.');
+    return;
+  }
 
-  document.getElementById('setup-screen').style.display = 'none';
-  document.getElementById('dashboard').style.display = 'flex';
-  document.getElementById('dash-channel').textContent = '#' + channel;
+  jwt = cfg.jwt;
+  totalSubs = state.subs || 0;
+  totalBits = state.bits || 0;
+  totalGifted = state.gifted || 0;
+  totalEvents = state.events || 0;
 
+  timerCfg = {
+    t1: cfg.secsT1, t2: cfg.secsT2, t3: cfg.secsT3,
+    per100Bits: cfg.secsPer100Bits, perDollar: cfg.secsPerDollar,
+  };
+  timerRemaining = state.timerRemaining ?? cfg.timerStart;
+  updateTimerDisplay();
+
+  document.getElementById('dash-channel').textContent = '#' + cfg.channel.toLowerCase();
   updateStats();
+
+  try {
+    await getChannelId(cfg.channel, jwt);
+  } catch (e) {
+    showError(e.message);
+    return;
+  }
+
   connectSocket();
+
+  if (saveInterval) clearInterval(saveInterval);
+  saveInterval = setInterval(saveState, 60_000);
+
+  pollLiveStatus();
+  if (liveStatusInterval) clearInterval(liveStatusInterval);
+  liveStatusInterval = setInterval(pollLiveStatus, 60_000);
 }
 
-function resetDashboard() {
-  if (socket) { socket.disconnect(); socket = null; }
-  document.getElementById('dashboard').style.display = 'none';
-  document.getElementById('setup-screen').style.display = 'flex';
-  const btn = document.getElementById('start-btn');
-  btn.textContent = 'Start Tracking';
-  btn.disabled = false;
-  totalSubs = totalGifted = totalBits = totalEvents = 0;
-  cheerers.clear(); seenIds.clear();
-  document.getElementById('feed').innerHTML = '<div class="feed-empty">Waiting for events…</div>';
-  document.getElementById('stat-subs').textContent = '0';
-  document.getElementById('stat-bits').textContent = '0';
-  document.getElementById('stat-events').textContent = '0';
-  document.getElementById('stat-gift').textContent = '0 gifted';
-  document.getElementById('stat-cheerers').textContent = '0 cheerers';
-  document.getElementById('stat-last').textContent = '—';
-}
-
-document.getElementById('start-btn').addEventListener('click', startDashboard);
-document.getElementById('reset-btn').addEventListener('click', resetDashboard);
-
+init();
 </script>
 </body>
 </html>

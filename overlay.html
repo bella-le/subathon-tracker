@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subathon Overlay</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 16px;
+      display: inline-flex;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .pill {
+      background: rgba(14, 14, 16, 0.85);
+      border-radius: 10px;
+      padding: 12px 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pill-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.45);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .pill-value {
+      font-size: 42px;
+      font-weight: 700;
+      color: #efeff1;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #timer-value {
+      font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+    }
+
+    .pill-value.expired { color: #f87171; }
+    .pill-value.paused { opacity: 0.4; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <div class="pill">
+      <div class="pill-label">Time Remaining</div>
+      <div class="pill-value paused" id="timer-value">--:--:--</div>
+    </div>
+    <div class="pill">
+      <div class="pill-label">Total Subs</div>
+      <div class="pill-value" id="subs-value">—</div>
+    </div>
+  </div>
+
+<script>
+let timerRemaining = 0;
+let timerInterval = null;
+
+function fmtTimer(secs) {
+  secs = Math.max(0, Math.floor(secs));
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function updateTimerDisplay() {
+  const el = document.getElementById('timer-value');
+  el.textContent = fmtTimer(timerRemaining);
+  el.classList.toggle('expired', timerRemaining <= 0);
+}
+
+function startTick() {
+  if (timerInterval) return;
+  timerInterval = setInterval(() => {
+    if (timerRemaining > 0) { timerRemaining--; updateTimerDisplay(); }
+  }, 1000);
+  document.getElementById('timer-value').classList.remove('paused');
+}
+
+function pauseTick() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  document.getElementById('timer-value').classList.add('paused');
+}
+
+async function sync() {
+  try {
+    const [stateRes, liveRes] = await Promise.all([
+      fetch('/api/state'),
+      fetch('/api/live-status'),
+    ]);
+    const state = await stateRes.json();
+    const { live } = await liveRes.json();
+
+    timerRemaining = state.timerRemaining ?? 0;
+    document.getElementById('subs-value').textContent = (state.subs ?? 0).toLocaleString();
+    updateTimerDisplay();
+
+    if (live) startTick();
+    else pauseTick();
+  } catch (_) {}
+}
+
+sync();
+setInterval(sync, 30_000);
+</script>
+</body>
+</html>

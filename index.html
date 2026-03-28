@@ -292,14 +292,9 @@
   </div>
 
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
 <script>
-let socket = null;
-let jwt = '';
-let seenIds = new Set();
 let totalSubs = 0, totalGifted = 0, totalBits = 0, totalEvents = 0;
 let cheerers = new Set();
-let saveInterval = null;
 
 let timerRemaining = 0;
 let timerInterval = null;
@@ -350,15 +345,18 @@ let liveStatusInterval = null;
 async function pollLiveStatus() {
   try {
     const res = await fetch('/api/live-status');
-    const { live, configured } = await res.json();
+    const { live, configured, seConnected } = await res.json();
 
     const dot = document.getElementById('twitch-dot');
     const text = document.getElementById('twitch-status');
     dot.classList.toggle('live', live);
     text.textContent = !configured ? 'Timer Running' : live ? 'Stream Live' : 'Offline';
 
+    document.getElementById('status-dot').classList.toggle('live', seConnected);
+    document.getElementById('status-text').textContent = seConnected ? 'SE Connected' : 'SE Disconnected';
+
     if (live) startTimerTick();
-    else { pauseTimerTick(); saveState(); }
+    else pauseTimerTick();
   } catch (_) {}
 }
 
@@ -413,46 +411,24 @@ function updateStats() {
   document.getElementById('stat-cheerers').textContent = cheerers.size + ' cheerers';
 }
 
-async function getChannelId(username, token) {
-  const res = await fetch(`https://api.streamelements.com/kappa/v2/channels/${encodeURIComponent(username)}`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  if (!res.ok) throw new Error(`Channel lookup failed (${res.status}). Check SE_CHANNEL and SE_JWT in .env.`);
-  const data = await res.json();
-  return data._id || data.id;
-}
-
-function handleEvent(ev) {
-  const id = ev._id || ev.activityId;
-  if (id && seenIds.has(id)) return;
-  if (id) seenIds.add(id);
-
-  const type = ev.type || '';
-  const d = ev.data || {};
-  const user = d.username || d.displayName || d.name || 'Anonymous';
-  const ts = ev.createdAt || new Date().toISOString();
+function handleSSEEvent(ev) {
+  const { type, user, target, tier, gifted, amount, ts } = ev;
 
   if (type === 'subscriber') {
     totalSubs++;
-    const tierNum = Number(d.tier || 1000);
-    const tierIdx = Math.ceil(tierNum / 1000);
-    const tier = `Tier ${tierIdx}`;
-    const gifted = !!(d.gifted || d.isCommunityGift || d.gifter);
     if (gifted) totalGifted++;
-    addTime([0, timerCfg.t1, timerCfg.t2, timerCfg.t3][tierIdx] || timerCfg.t1);
+    const tierLabel = `Tier ${tier}`;
+    addTime([0, timerCfg.t1, timerCfg.t2, timerCfg.t3][tier] || timerCfg.t1);
     addFeedItem({
       iconText: '★',
       iconClass: gifted ? 'icon-gift' : 'icon-sub',
       badgeClass: gifted ? 'badge-gift' : 'badge-sub',
-      badgeText: gifted ? 'Gifted' : tier,
-      user: gifted ? (d.gifter || user) : user,
-      meta: gifted ? `Gifted a sub to ${user}` : `Subscribed · ${tier}${d.message ? ' · "' + d.message + '"' : ''}`,
-      time: ts
+      badgeText: gifted ? 'Gifted' : tierLabel,
+      user,
+      meta: gifted ? `Gifted a sub to ${target}` : `Subscribed · ${tierLabel}`,
+      time: ts,
     });
-    updateStats();
-    saveState();
   } else if (type === 'cheer') {
-    const amount = Number(d.amount || d.bits || 0);
     totalBits += amount;
     cheerers.add(user.toLowerCase());
     addTime(Math.floor(amount / 100) * timerCfg.per100Bits);
@@ -462,13 +438,10 @@ function handleEvent(ev) {
       badgeClass: 'badge-bits',
       badgeText: 'Bits',
       user,
-      meta: `Cheered ${amount.toLocaleString()} bits${d.message ? ' · "' + d.message + '"' : ''}`,
-      time: ts
+      meta: `Cheered ${amount.toLocaleString()} bits`,
+      time: ts,
     });
-    updateStats();
-    saveState();
   } else if (type === 'tip') {
-    const amount = Number(d.amount || 0);
     addTime(Math.floor(amount) * timerCfg.perDollar);
     addFeedItem({
       iconText: '$',
@@ -476,61 +449,15 @@ function handleEvent(ev) {
       badgeClass: 'badge-tip',
       badgeText: 'Donation',
       user,
-      meta: `Donated $${amount.toFixed(2)}${d.message ? ' · "' + d.message + '"' : ''}`,
-      time: ts
+      meta: `Donated $${Number(amount).toFixed(2)}`,
+      time: ts,
     });
-    updateStats();
-    saveState();
+  } else {
+    return;
   }
-}
 
-function connectSocket() {
-  if (socket) { socket.disconnect(); socket = null; }
-
-  socket = io('https://realtime.streamelements.com', { transports: ['websocket'] });
-
-  socket.on('connect', () => {
-    socket.emit('authenticate', { method: 'jwt', token: jwt });
-  });
-
-  socket.on('authenticated', () => {
-    document.getElementById('status-dot').classList.add('live');
-    document.getElementById('status-text').textContent = 'Live';
-    document.getElementById('last-poll').textContent = 'Connected · waiting for events';
-  });
-
-  socket.on('unauthorized', err => {
-    document.getElementById('status-text').textContent = 'Auth error';
-    document.getElementById('status-dot').classList.remove('live');
-    showError('StreamElements auth failed. Check SE_JWT in .env.');
-    console.error('SE unauthorized:', err);
-  });
-
-  socket.on('event', handleEvent);
-
-  socket.on('disconnect', () => {
-    document.getElementById('status-dot').classList.remove('live');
-    document.getElementById('status-text').textContent = 'Reconnecting…';
-    document.getElementById('last-poll').textContent = 'Disconnected · reconnecting…';
-  });
-
-  socket.on('connect_error', err => {
-    document.getElementById('status-text').textContent = 'Connection error';
-    console.error('Socket connect error:', err);
-  });
-}
-
-async function saveState() {
-  try {
-    await fetch('/api/state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        subs: totalSubs, bits: totalBits, gifted: totalGifted, events: totalEvents,
-        timerRemaining,
-      }),
-    });
-  } catch (_) {}
+  totalEvents++;
+  updateStats();
 }
 
 async function init() {
@@ -544,12 +471,11 @@ async function init() {
     return;
   }
 
-  if (!cfg.jwt || !cfg.channel) {
-    showError('SE_JWT and SE_CHANNEL must be set in .env before starting.');
+  if (!cfg.channel) {
+    showError('SE_CHANNEL must be set in .env before starting.');
     return;
   }
 
-  jwt = cfg.jwt;
   totalSubs = state.subs || 0;
   totalBits = state.bits || 0;
   totalGifted = state.gifted || 0;
@@ -560,22 +486,27 @@ async function init() {
     per100Bits: cfg.secsPer100Bits, perDollar: cfg.secsPerDollar,
   };
   timerRemaining = state.timerRemaining ?? cfg.timerStart;
-  updateTimerDisplay();
 
   document.getElementById('dash-channel').textContent = '#' + cfg.channel.toLowerCase();
   updateStats();
+  updateTimerDisplay();
 
-  try {
-    await getChannelId(cfg.channel, jwt);
-  } catch (e) {
-    showError(e.message);
-    return;
-  }
+  // Resync stats + timer from server every 5s
+  setInterval(async () => {
+    try {
+      const s = await (await fetch('/api/state')).json();
+      totalSubs = s.subs || 0;
+      totalBits = s.bits || 0;
+      totalGifted = s.gifted || 0;
+      timerRemaining = s.timerRemaining ?? timerRemaining;
+      updateStats();
+      updateTimerDisplay();
+    } catch (_) {}
+  }, 5000);
 
-  connectSocket();
-
-  if (saveInterval) clearInterval(saveInterval);
-  saveInterval = setInterval(saveState, 60_000);
+  // Receive live events from server via SSE
+  const es = new EventSource('/api/stream');
+  es.onmessage = (e) => handleSSEEvent(JSON.parse(e.data));
 
   pollLiveStatus();
   if (liveStatusInterval) clearInterval(liveStatusInterval);

@@ -450,6 +450,7 @@ function handleEvent(ev) {
       time: ts
     });
     updateStats();
+    saveState();
   } else if (type === 'cheer') {
     const amount = Number(d.amount || d.bits || 0);
     totalBits += amount;
@@ -465,6 +466,7 @@ function handleEvent(ev) {
       time: ts
     });
     updateStats();
+    saveState();
   } else if (type === 'tip') {
     const amount = Number(d.amount || 0);
     addTime(Math.floor(amount) * timerCfg.perDollar);
@@ -478,6 +480,7 @@ function handleEvent(ev) {
       time: ts
     });
     updateStats();
+    saveState();
   }
 }
 
